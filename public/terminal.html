@@ -6,105 +6,118 @@
   <title>MindPalace Terminal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
   <style>
-    body, html {
+    body {
       margin: 0;
-      padding: 0;
-      height: 100%;
-      background: black;
+      background-color: black;
+      color: white;
       font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
-    #banner {
-      background: #000;
+    #topbar {
+      background-color: #000;
       color: #0f0;
-      padding: 10px;
+      padding: 5px 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      font-weight: bold;
     }
     #terminal-container {
-      width: 100%;
-      height: calc(100% - 100px);
+      flex-grow: 1;
+      min-height: 0;
+      overflow: hidden;
     }
-    #controls {
-      background: #111;
-      color: #0f0;
-      padding: 10px;
+    #bottom-bar {
+      background-color: #111;
+      color: white;
+      padding: 6px 10px;
+      border-top: 1px solid #333;
     }
-    #file-list a {
-      color: #0f0;
-      text-decoration: underline;
+    .file-actions {
+      margin-bottom: 4px;
+    }
+    .file-actions form {
+      display: inline;
+      margin-right: 10px;
+    }
+    .file-list {
+      margin-top: 4px;
+    }
+    .file-list a {
       display: block;
+      color: #0f0;
+      text-decoration: none;
+      font-size: 0.9em;
+    }
+    .file-list a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
-  <div id="banner">
-    <span id="user-label">Loading...</span>
-    <button onclick="logout()">Logout</button>
-  </div>
-
-  <div id="controls">
-    <form id="uploadForm" method="post" action="/upload" enctype="multipart/form-data">
-      <input type="file" name="file" />
-      <button type="submit">Upload</button>
-    </form>
-    <div id="file-list"></div>
+  <div id="topbar">
+    <span id="userDisplay">Logged in as: ...</span>
+    <a href="/logout" style="color:#f00; text-decoration:none;">Logout</a>
   </div>
 
   <div id="terminal-container"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+  <div id="bottom-bar">
+    <div class="file-actions">
+      <form action="/upload" method="POST" enctype="multipart/form-data">
+        <input type="file" name="file" />
+        <button type="submit">Upload</button>
+      </form>
+    </div>
+    <div class="file-list">
+      <strong>Available Files:</strong>
+      <div id="fileLinks"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit/lib/xterm-addon-fit.min.js"></script>
   <script>
     const term = new Terminal();
-    const container = document.getElementById('terminal-container');
-    term.open(container);
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+
+    const terminalContainer = document.getElementById('terminal-container');
+    term.open(terminalContainer);
+    fitAddon.fit();
+
+    const socket = new WebSocket(`wss://${location.host}`);
+    socket.onopen = () => {
+      fitAddon.fit(); // Ensure resize on connect
+      window.addEventListener('resize', () => {
+        fitAddon.fit();
+        socket.send(JSON.stringify({ resize: { cols: term.cols, rows: term.rows } }));
+      });
+    };
+    socket.onmessage = e => term.write(e.data);
+    term.onData(d => socket.send(d));
 
     fetch('/whoami')
       .then(res => res.json())
       .then(data => {
-        document.getElementById('user-label').innerText = `Logged in as: ${data.username}`;
+        document.getElementById('userDisplay').textContent = `Logged in as: ${data.username}`;
       });
 
-    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${protocol}://${location.host}`);
-
-    ws.onopen = () => {
-      term.onData(data => ws.send(data));
-
-      window.addEventListener('resize', () => {
-        const cols = term.cols;
-        const rows = term.rows;
-        ws.send(JSON.stringify({ resize: { cols, rows } }));
-      });
-
-      const cols = term.cols;
-      const rows = term.rows;
-      ws.send(JSON.stringify({ resize: { cols, rows } }));
-    };
-
-    ws.onmessage = e => term.write(e.data);
-
-    function logout() {
-      location.href = '/logout';
-    }
-
-    function refreshFileList() {
-      fetch('/filelist')
-        .then(res => res.json())
-        .then(files => {
-          const listDiv = document.getElementById('file-list');
-          listDiv.innerHTML = '<h3>Available Files:</h3>';
-          files.forEach(file => {
-            const link = document.createElement('a');
-            link.href = `/files/${file}`;
-            link.textContent = file;
-            link.download = file;
-            listDiv.appendChild(link);
-          });
+    fetch('/filelist')
+      .then(res => res.json())
+      .then(files => {
+        const fileLinks = document.getElementById('fileLinks');
+        fileLinks.innerHTML = '';
+        files.forEach(f => {
+          const a = document.createElement('a');
+          a.href = `/files/${f}`;
+          a.textContent = f;
+          a.download = f;
+          fileLinks.appendChild(a);
         });
-    }
-
-    refreshFileList();
+      });
   </script>
 </body>
 </html>
