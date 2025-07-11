@@ -39,6 +39,13 @@ Run the install script:
 ./install.sh
 ```
 
+Post install, enable multiplayer with persistence: 
+
+```bash
+sliver-server
+multiplayer -p
+```
+
 This will:
 
 * Install Node.js and PM2
