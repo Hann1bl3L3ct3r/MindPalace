@@ -54,7 +54,7 @@ This will:
 ### `.env`
 
 ```env
-AUTH_USERS=admin:hunter2,anthony:clarice,hannibal:chianti
+AUTH_USERS=admin:hunter2
 ```
 
 Define multiple users as `username:password` comma-separated pairs.
@@ -76,6 +76,20 @@ Self-signed certs are generated at `cert/cert.pem` and `cert/key.pem`.
 4. Upload/download files via the bottom pane
 
 ---
+
+##  Adding Users 
+
+To add a new user, follow the process below: 
+
+1. Post install, add a user to the .env file for access in the format user:password
+2. Change directory into ./operators 
+3. Launch sliver-server manually
+4. Generate a new operator with: new-operator --name NAME --lhost 127.0.0.1
+5. Exit sliver-server 
+6. Modify the file name to NAME.cfg matching the name of the user added to the .env file
+7. Import the configuration with: sliver-client import NAME.cfg
+
+On login, the username for MindPalace and the sliver-client operator account are automatically associated and a user is assigned their appropriate configuration. 
 
 ##  File Sharing
 
