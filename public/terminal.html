@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MindPalace Terminal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: black;
+      font-family: monospace;
+    }
+    #banner {
+      background: #000;
+      color: #0f0;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #terminal-container {
+      width: 100%;
+      height: calc(100% - 100px);
+    }
+    #controls {
+      background: #111;
+      color: #0f0;
+      padding: 10px;
+    }
+    #file-list a {
+      color: #0f0;
+      text-decoration: underline;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="banner">
+    <span id="user-label">Loading...</span>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <div id="controls">
+    <form id="uploadForm" method="post" action="/upload" enctype="multipart/form-data">
+      <input type="file" name="file" />
+      <button type="submit">Upload</button>
+    </form>
+    <div id="file-list"></div>
+  </div>
+
+  <div id="terminal-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+  <script>
+    const term = new Terminal();
+    const container = document.getElementById('terminal-container');
+    term.open(container);
+
+    fetch('/whoami')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('user-label').innerText = `Logged in as: ${data.username}`;
+      });
+
+    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${protocol}://${location.host}`);
+
+    ws.onopen = () => {
+      term.onData(data => ws.send(data));
+
+      window.addEventListener('resize', () => {
+        const cols = term.cols;
+        const rows = term.rows;
+        ws.send(JSON.stringify({ resize: { cols, rows } }));
+      });
+
+      const cols = term.cols;
+      const rows = term.rows;
+      ws.send(JSON.stringify({ resize: { cols, rows } }));
+    };
+
+    ws.onmessage = e => term.write(e.data);
+
+    function logout() {
+      location.href = '/logout';
+    }
+
+    function refreshFileList() {
+      fetch('/filelist')
+        .then(res => res.json())
+        .then(files => {
+          const listDiv = document.getElementById('file-list');
+          listDiv.innerHTML = '<h3>Available Files:</h3>';
+          files.forEach(file => {
+            const link = document.createElement('a');
+            link.href = `/files/${file}`;
+            link.textContent = file;
+            link.download = file;
+            listDiv.appendChild(link);
+          });
+        });
+    }
+
+    refreshFileList();
+  </script>
+</body>
+</html>
