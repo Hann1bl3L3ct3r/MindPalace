@@ -220,28 +220,33 @@ wss.on('connection', (ws, req) => {
   sliverClients.add(client);
 
   ws.on('message', (msg) => {
-    try {
-      const parsed = JSON.parse(msg);
-      if (parsed && parsed.resize && ptyProcess) {
-        ptyProcess.resize(parsed.resize.cols, parsed.resize.rows);
+    // Only try to parse if message starts with '{' (i.e., likely JSON)
+    if (typeof msg === 'string' && msg.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed && parsed.resize && ptyProcess) {
+          ptyProcess.resize(parsed.resize.cols, parsed.resize.rows);
+        }
         return;
+      } catch (err) {
+        // Not valid JSON — fall through
       }
-    } catch (e) {
-      const input = msg.toString();
-
-      if (input === '\r' || input === '\n') {
-        const timestamp = new Date().toISOString();
-        const logEntry = `[${timestamp}] ${username}: ${inputBuffer.trim()}\n`;
-        fs.appendFile('audit.log', logEntry, err => {
-          if (err) console.error('[!] Failed to write to audit.log:', err);
-        });
-        inputBuffer = '';
-      } else {
-        inputBuffer += input;
-      }
-
-      if (ptyProcess) ptyProcess.write(msg);
     }
+
+    const input = msg.toString();
+
+    if (input === '\r' || input === '\n') {
+      const timestamp = new Date().toISOString();
+      const logEntry = `[${timestamp}] ${username}: ${inputBuffer.trim()}\n`;
+      fs.appendFile('audit.log', logEntry, err => {
+        if (err) console.error('[!] Failed to write to audit.log:', err);
+      });
+      inputBuffer = '';
+    } else {
+      inputBuffer += input;
+    }
+
+    if (ptyProcess) ptyProcess.write(input);
   });
 
   ws.on('close', () => {
