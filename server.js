@@ -107,6 +107,20 @@ app.get('/filelist', (req, res) => {
   });
 });
 
+app.delete('/delete/:filename', (req, res) => {
+  if (!req.session?.authenticated) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const filePath = path.join(__dirname, 'files', req.params.filename);
+  fs.unlink(filePath, err => {
+    if (err) {
+      return res.status(500).json({ error: 'Could not delete file' });
+    }
+    res.json({ success: true });
+  });
+});
+
 server.on('upgrade', (req, socket, head) => {
   sessionMiddleware(req, {}, () => {
     if (!req.session?.authenticated) {
