@@ -45,14 +45,29 @@
     .file-list {
       margin-top: 4px;
     }
-    .file-list a {
-      display: block;
+    .file-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #000;
+      padding: 2px 0;
+    }
+    .file-entry a {
       color: #0f0;
       text-decoration: none;
       font-size: 0.9em;
+      flex-grow: 1;
     }
-    .file-list a:hover {
-      text-decoration: underline;
+    .file-entry button {
+      background: #600;
+      color: white;
+      border: none;
+      padding: 2px 6px;
+      cursor: pointer;
+      font-size: 0.8em;
+    }
+    .file-entry button:hover {
+      background: #a00;
     }
   </style>
 </head>
@@ -80,7 +95,18 @@
   <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit/lib/xterm-addon-fit.min.js"></script>
   <script>
-    const term = new Terminal();
+    const term = new Terminal({
+      convertEol: true,
+      fontFamily: 'monospace',
+      fontSize: 14,
+      cursorBlink: true,
+      allowProposedApi: true,
+      allowTransparency: true,
+      windowsMode: true
+    });
+
+    term.attachCustomKeyEventHandler(e => true);
+
     const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
 
@@ -90,14 +116,15 @@
 
     const socket = new WebSocket(`wss://${location.host}`);
     socket.onopen = () => {
-      fitAddon.fit(); // Ensure resize on connect
+      fitAddon.fit();
       window.addEventListener('resize', () => {
         fitAddon.fit();
         socket.send(JSON.stringify({ resize: { cols: term.cols, rows: term.rows } }));
       });
     };
+
     socket.onmessage = e => term.write(e.data);
-    term.onData(d => socket.send(d));
+    term.onData(data => socket.send(data));
 
     fetch('/whoami')
       .then(res => res.json())
@@ -105,19 +132,46 @@
         document.getElementById('userDisplay').textContent = `Logged in as: ${data.username}`;
       });
 
-    fetch('/filelist')
-      .then(res => res.json())
-      .then(files => {
-        const fileLinks = document.getElementById('fileLinks');
-        fileLinks.innerHTML = '';
-        files.forEach(f => {
-          const a = document.createElement('a');
-          a.href = `/files/${f}`;
-          a.textContent = f;
-          a.download = f;
-          fileLinks.appendChild(a);
-        });
+    function deleteFile(filename) {
+      fetch(`/delete/${encodeURIComponent(filename)}`, {
+        method: 'DELETE'
+      })
+      .then(res => {
+        if (res.ok) {
+          loadFiles();
+        } else {
+          alert('Failed to delete file');
+        }
       });
+    }
+
+    function loadFiles() {
+      fetch('/filelist')
+        .then(res => res.json())
+        .then(files => {
+          const fileLinks = document.getElementById('fileLinks');
+          fileLinks.innerHTML = '';
+          files.forEach(f => {
+            const entry = document.createElement('div');
+            entry.className = 'file-entry';
+
+            const a = document.createElement('a');
+            a.href = `/files/${f}`;
+            a.textContent = f;
+            a.download = f;
+
+            const btn = document.createElement('button');
+            btn.textContent = 'Delete';
+            btn.onclick = () => deleteFile(f);
+
+            entry.appendChild(a);
+            entry.appendChild(btn);
+            fileLinks.appendChild(entry);
+          });
+        });
+    }
+
+    loadFiles();
   </script>
 </body>
 </html>
