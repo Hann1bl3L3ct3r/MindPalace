@@ -122,7 +122,7 @@ All user inputs (line-by-line) are written to `audit.log` with timestamps and us
 ##  Roadmap
 
 *  Per-user file separation (optional toggle)
-*  Admin-only file deletion controls
+*  File deletion controls (Added 7/21/25)
 *  Real-time broadcast operator chat
 *  Inline command macros / payload quick drops
 *  Forensic cleanup options
